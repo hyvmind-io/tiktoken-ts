@@ -14,7 +14,6 @@ import {
   type Vocabulary,
   parseVocabulary,
   CoreBPE,
-  getEncodingDefinition,
   CL100K_BASE,
   O200K_BASE,
   P50K_BASE,
