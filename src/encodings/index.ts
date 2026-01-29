@@ -33,3 +33,16 @@ export {
   CONTENT_TYPE_MULTIPLIERS as P50K_CONTENT_MULTIPLIERS,
   estimateTokensForContent as estimateP50kTokens,
 } from "./p50k-base.js";
+
+// claude_estimation (Anthropic Claude models - estimation only)
+export {
+  createClaudeEstimationTokenizer,
+  ENCODING_NAME as CLAUDE_ENCODING_NAME,
+  AVERAGE_CHARS_PER_TOKEN as CLAUDE_AVG_CHARS,
+  ESTIMATED_VOCAB_SIZE as CLAUDE_VOCAB_SIZE,
+  SAFETY_MULTIPLIER as CLAUDE_SAFETY_MULT,
+  CONTENT_TYPE_MULTIPLIERS as CLAUDE_CONTENT_MULTIPLIERS,
+  estimateClaudeTokens,
+  estimateClaudeTokensConservative,
+  includesSafetyMultiplier as claudeIncludesSafetyMultiplier,
+} from "./claude-estimation.js";

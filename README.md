@@ -258,14 +258,15 @@ listModels(); // ["gpt-5", "gpt-4o", "gpt-4", ...]
 
 ## Supported Encodings
 
-| Encoding        | Vocab Size | Description         | Models                           |
-| --------------- | ---------- | ------------------- | -------------------------------- |
-| `o200k_base`    | 200,000    | Latest encoding     | GPT-4o, GPT-4.1, GPT-5, o-series |
-| `o200k_harmony` | 200,000    | Open source variant | gpt-oss                          |
-| `cl100k_base`   | 100,256    | GPT-4 era           | GPT-4, GPT-3.5-turbo, embeddings |
-| `p50k_base`     | 50,257     | Codex era           | Code-davinci, text-davinci-003   |
-| `p50k_edit`     | 50,257     | Edit models         | text-davinci-edit-001            |
-| `r50k_base`     | 50,257     | Legacy              | GPT-3 (davinci, curie, etc.)     |
+| Encoding            | Vocab Size | Description         | Models                            |
+| ------------------- | ---------- | ------------------- | --------------------------------- |
+| `o200k_base`        | 200,000    | Latest encoding     | GPT-4o, GPT-4.1, GPT-5, o-series  |
+| `o200k_harmony`     | 200,000    | Open source variant | gpt-oss                           |
+| `cl100k_base`       | 100,256    | GPT-4 era           | GPT-4, GPT-3.5-turbo, embeddings  |
+| `p50k_base`         | 50,257     | Codex era           | Code-davinci, text-davinci-003    |
+| `p50k_edit`         | 50,257     | Edit models         | text-davinci-edit-001             |
+| `r50k_base`         | 50,257     | Legacy              | GPT-3 (davinci, curie, etc.)      |
+| `claude_estimation` | ~22,000    | Claude estimation   | All Claude models (safe estimate) |
 
 ## Supported Models
 
@@ -280,9 +281,46 @@ listModels(); // ["gpt-5", "gpt-4o", "gpt-4", ...]
 - **Embeddings**: text-embedding-ada-002, text-embedding-3-small/large
 - **Fine-tuned**: ft:gpt-4o, ft:gpt-4, ft:gpt-3.5-turbo
 
-### Anthropic Claude (Estimation only)
+### Anthropic Claude (Safe Estimation)
 
-Token estimation for Claude models using cl100k_base approximation:
+Claude models use a dedicated `claude_estimation` encoding that provides **safe** token estimates with a built-in safety margin. This is designed to prevent API truncation by intentionally over-counting tokens.
+
+**Why is Claude different?**
+
+Claude uses a proprietary tokenizer that is NOT publicly available. Based on research:
+
+- Claude 3+ uses ~22,000 token vocabulary (vs OpenAI's 100K-200K)
+- Claude produces 16-30% MORE tokens than GPT-4 for equivalent content
+- Average ~3.5 characters per token (vs GPT-4's ~4)
+
+**Our solution:**
+
+The `claude_estimation` encoding applies a **1.25x safety multiplier** to ensure estimates err on over-counting. This prevents API truncation while still providing useful estimates.
+
+```typescript
+import {
+  countTokens,
+  usesClaudeEstimation,
+  estimateClaudeTokens,
+} from "tiktoken-ts";
+
+// Automatic safe estimation for Claude models
+const count = countTokens("Hello, Claude!", { model: "claude-4-5-sonnet" });
+
+// Check if model uses Claude estimation
+if (usesClaudeEstimation("claude-3-opus")) {
+  console.log("This uses safe Claude estimation");
+}
+
+// Content-aware estimation (code has additional +10% multiplier)
+const codeCount = estimateClaudeTokens(pythonCode, "code");
+```
+
+**For exact Claude token counts**, use Anthropic's official API:
+
+- [Token Counting API](https://docs.anthropic.com/en/docs/build-with-claude/token-counting)
+
+Supported Claude models:
 
 - Claude 4.5, 4.1, 4, 3.5, 3, 2 series
 
@@ -305,7 +343,7 @@ The async API produces **identical tokens** to OpenAI's tiktoken and tiktoken-rs
 The sync estimation API uses heuristics and is:
 
 - **Fast** - No vocabulary loading (instant)
-- **Approximate** - Typically within ±10-15% for English
+- **Approximate** - Typically within ±10-15% for English (OpenAI models)
 - **Conservative** - Tends to slightly over-estimate, safer for API calls
 
 Use estimation when:
@@ -313,6 +351,16 @@ Use estimation when:
 - You need quick approximate counts
 - You're doing context window management
 - Exact counts aren't critical
+
+### Claude Estimation
+
+For Claude models, the estimation is **intentionally conservative** with a 1.25x safety multiplier because:
+
+- Claude's tokenizer is proprietary (not publicly available)
+- Claude produces 16-30% more tokens than GPT-4 for equivalent content
+- Over-estimation is safer than under-estimation for API limits
+
+For exact Claude counts, use [Anthropic's Token Counting API](https://docs.anthropic.com/en/docs/build-with-claude/token-counting).
 
 ## Browser Usage
 

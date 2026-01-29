@@ -194,49 +194,60 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   ),
 
   // ==========================================================================
-  // Anthropic Claude Models (approximation with cl100k_base)
-  // Claude uses its own tokenizer; cl100k_base gives reasonable estimates
+  // Anthropic Claude Models
+  //
+  // IMPORTANT: Claude uses a proprietary tokenizer that is NOT publicly available.
+  // The "claude_estimation" encoding provides SAFE estimates that intentionally
+  // over-count tokens (25% safety margin) to prevent API truncation issues.
+  //
+  // Research findings (see claude-tokenizer-research.md):
+  // - Claude 3+ uses ~22,000 token vocabulary (smaller than OpenAI's 100K-200K)
+  // - Claude produces 16-30% MORE tokens than GPT-4 for equivalent content
+  // - Average ~3.5 characters per token (vs GPT-4's ~4)
+  //
+  // For exact Claude token counts, use Anthropic's /v1/messages/count_tokens API.
+  // @see https://docs.anthropic.com/en/docs/build-with-claude/token-counting
   // ==========================================================================
 
   // Claude 4.5 Series
   "claude-4-5-opus": createModelConfig(
     "claude-4-5-opus",
-    "cl100k_base",
+    "claude_estimation",
     32768,
     "claude",
     200_000,
   ),
   "claude-4.5-opus": createModelConfig(
     "claude-4.5-opus",
-    "cl100k_base",
+    "claude_estimation",
     32768,
     "claude",
     200_000,
   ),
   "claude-4-5-sonnet": createModelConfig(
     "claude-4-5-sonnet",
-    "cl100k_base",
+    "claude_estimation",
     16384,
     "claude",
     200_000,
   ),
   "claude-4.5-sonnet": createModelConfig(
     "claude-4.5-sonnet",
-    "cl100k_base",
+    "claude_estimation",
     16384,
     "claude",
     200_000,
   ),
   "claude-4-5-haiku": createModelConfig(
     "claude-4-5-haiku",
-    "cl100k_base",
+    "claude_estimation",
     8192,
     "claude",
     200_000,
   ),
   "claude-4.5-haiku": createModelConfig(
     "claude-4.5-haiku",
-    "cl100k_base",
+    "claude_estimation",
     8192,
     "claude",
     200_000,
@@ -245,28 +256,28 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   // Claude 4.1 Series
   "claude-4-1-opus": createModelConfig(
     "claude-4-1-opus",
-    "cl100k_base",
+    "claude_estimation",
     32768,
     "claude",
     200_000,
   ),
   "claude-4.1-opus": createModelConfig(
     "claude-4.1-opus",
-    "cl100k_base",
+    "claude_estimation",
     32768,
     "claude",
     200_000,
   ),
   "claude-4-1-sonnet": createModelConfig(
     "claude-4-1-sonnet",
-    "cl100k_base",
+    "claude_estimation",
     16384,
     "claude",
     200_000,
   ),
   "claude-4.1-sonnet": createModelConfig(
     "claude-4.1-sonnet",
-    "cl100k_base",
+    "claude_estimation",
     16384,
     "claude",
     200_000,
@@ -275,14 +286,14 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   // Claude 4 Series
   "claude-4-opus": createModelConfig(
     "claude-4-opus",
-    "cl100k_base",
+    "claude_estimation",
     32768,
     "claude",
     200_000,
   ),
   "claude-4-sonnet": createModelConfig(
     "claude-4-sonnet",
-    "cl100k_base",
+    "claude_estimation",
     16384,
     "claude",
     200_000,
@@ -291,42 +302,42 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   // Claude 3.5 Series
   "claude-3-5-sonnet-20241022": createModelConfig(
     "claude-3-5-sonnet-20241022",
-    "cl100k_base",
+    "claude_estimation",
     8192,
     "claude",
     200_000,
   ),
   "claude-3-5-sonnet-latest": createModelConfig(
     "claude-3-5-sonnet-latest",
-    "cl100k_base",
+    "claude_estimation",
     8192,
     "claude",
     200_000,
   ),
   "claude-3-5-sonnet": createModelConfig(
     "claude-3-5-sonnet",
-    "cl100k_base",
+    "claude_estimation",
     8192,
     "claude",
     200_000,
   ),
   "claude-3-5-haiku-20241022": createModelConfig(
     "claude-3-5-haiku-20241022",
-    "cl100k_base",
+    "claude_estimation",
     8192,
     "claude",
     200_000,
   ),
   "claude-3-5-haiku-latest": createModelConfig(
     "claude-3-5-haiku-latest",
-    "cl100k_base",
+    "claude_estimation",
     8192,
     "claude",
     200_000,
   ),
   "claude-3-5-haiku": createModelConfig(
     "claude-3-5-haiku",
-    "cl100k_base",
+    "claude_estimation",
     8192,
     "claude",
     200_000,
@@ -335,49 +346,49 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   // Claude 3 Series
   "claude-3-opus-20240229": createModelConfig(
     "claude-3-opus-20240229",
-    "cl100k_base",
+    "claude_estimation",
     4096,
     "claude",
     200_000,
   ),
   "claude-3-opus-latest": createModelConfig(
     "claude-3-opus-latest",
-    "cl100k_base",
+    "claude_estimation",
     4096,
     "claude",
     200_000,
   ),
   "claude-3-opus": createModelConfig(
     "claude-3-opus",
-    "cl100k_base",
+    "claude_estimation",
     4096,
     "claude",
     200_000,
   ),
   "claude-3-sonnet-20240229": createModelConfig(
     "claude-3-sonnet-20240229",
-    "cl100k_base",
+    "claude_estimation",
     4096,
     "claude",
     200_000,
   ),
   "claude-3-sonnet": createModelConfig(
     "claude-3-sonnet",
-    "cl100k_base",
+    "claude_estimation",
     4096,
     "claude",
     200_000,
   ),
   "claude-3-haiku-20240307": createModelConfig(
     "claude-3-haiku-20240307",
-    "cl100k_base",
+    "claude_estimation",
     4096,
     "claude",
     200_000,
   ),
   "claude-3-haiku": createModelConfig(
     "claude-3-haiku",
-    "cl100k_base",
+    "claude_estimation",
     4096,
     "claude",
     200_000,
@@ -386,14 +397,14 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   // Claude 2 Series (Legacy)
   "claude-2.1": createModelConfig(
     "claude-2.1",
-    "cl100k_base",
+    "claude_estimation",
     4096,
     "claude",
     200_000,
   ),
   "claude-2.0": createModelConfig(
     "claude-2.0",
-    "cl100k_base",
+    "claude_estimation",
     4096,
     "claude",
     100_000,
@@ -402,7 +413,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   // Claude Instant (Legacy)
   "claude-instant-1.2": createModelConfig(
     "claude-instant-1.2",
-    "cl100k_base",
+    "claude_estimation",
     4096,
     "claude",
     100_000,
@@ -618,6 +629,31 @@ export function getModelFamily(modelName: string): ModelFamily {
  */
 export function usesO200kEncoding(modelName: string): boolean {
   return getEncodingForModel(modelName) === "o200k_base";
+}
+
+/**
+ * Check if a model uses the Claude estimation encoding
+ *
+ * Claude models use a proprietary tokenizer. This encoding provides
+ * "safe" estimates that intentionally over-count tokens to prevent
+ * API truncation issues.
+ *
+ * @param modelName - Model name
+ * @returns True if model uses claude_estimation
+ */
+export function usesClaudeEstimation(modelName: string): boolean {
+  return getEncodingForModel(modelName) === "claude_estimation";
+}
+
+/**
+ * Check if a model is a Claude model
+ *
+ * @param modelName - Model name
+ * @returns True if model is from Anthropic Claude family
+ */
+export function isClaudeModel(modelName: string): boolean {
+  const config = getModelConfig(modelName);
+  return config?.family === "claude";
 }
 
 /**

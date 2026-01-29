@@ -26,16 +26,24 @@ import {
   getEncodingForModel,
   getModelFamily,
   usesO200kEncoding,
+  usesClaudeEstimation,
+  isClaudeModel,
   listModels,
   listModelsByFamily,
 
   // BPE
   BPETokenizer,
   getEncodingConfig,
+  CLAUDE_SAFETY_MULTIPLIER,
 
   // Encodings
   createO200kTokenizer,
   createCL100kTokenizer,
+  createClaudeEstimationTokenizer,
+  estimateClaudeTokens,
+  estimateClaudeTokensConservative,
+  CLAUDE_VOCAB_SIZE,
+  CLAUDE_AVG_CHARS,
 
   // Utils
   stringToBytes,
@@ -1006,6 +1014,150 @@ describe("Integration Tests", () => {
       // 3.5 aliases
       expect(getModelConfig("claude3.5")).toBeDefined();
       expect(getModelConfig("claude-35-sonnet")).toBeDefined();
+    });
+  });
+
+  // ===========================================================================
+  // Claude Estimation Encoding Tests
+  // ===========================================================================
+
+  describe("Claude Estimation Encoding", () => {
+    it("should use claude_estimation encoding for Claude models", () => {
+      expect(getEncodingForModel("claude-4-5-sonnet")).toBe(
+        "claude_estimation",
+      );
+      expect(getEncodingForModel("claude-4-5-opus")).toBe("claude_estimation");
+      expect(getEncodingForModel("claude-3-5-sonnet")).toBe(
+        "claude_estimation",
+      );
+      expect(getEncodingForModel("claude-3-opus")).toBe("claude_estimation");
+      expect(getEncodingForModel("claude-2.1")).toBe("claude_estimation");
+    });
+
+    it("should identify Claude models with usesClaudeEstimation()", () => {
+      expect(usesClaudeEstimation("claude-4-5-sonnet")).toBe(true);
+      expect(usesClaudeEstimation("claude-3-opus")).toBe(true);
+      expect(usesClaudeEstimation("gpt-4o")).toBe(false);
+      expect(usesClaudeEstimation("gpt-4")).toBe(false);
+    });
+
+    it("should identify Claude models with isClaudeModel()", () => {
+      expect(isClaudeModel("claude-4-5-sonnet")).toBe(true);
+      expect(isClaudeModel("claude-3-opus")).toBe(true);
+      expect(isClaudeModel("claude-2.1")).toBe(true);
+      expect(isClaudeModel("gpt-4o")).toBe(false);
+    });
+
+    it("should apply safety multiplier for Claude token counting", () => {
+      const text = "Hello, Claude! How are you today?";
+
+      // Get base count without safety multiplier (using cl100k_base)
+      const baseCount = countTokens(text, { encoding: "cl100k_base" });
+
+      // Get Claude count with safety multiplier
+      const claudeCount = countTokens(text, { encoding: "claude_estimation" });
+
+      // Claude count should be higher due to:
+      // 1. Lower averageCharsPerToken (3.5 vs 3.8) = ~1.086x more tokens
+      // 2. Safety multiplier of 1.25x
+      // Combined effect: ~1.36x higher (but varies with text)
+      expect(claudeCount).toBeGreaterThan(baseCount);
+
+      // The ratio should be at least 1.2x (safety multiplier effect)
+      // Upper bound is relaxed because of combined effects
+      const ratio = claudeCount / baseCount;
+      expect(ratio).toBeGreaterThanOrEqual(1.2);
+      expect(ratio).toBeLessThanOrEqual(1.6); // Allow for combined effects
+    });
+
+    it("should create Claude estimation tokenizer", () => {
+      const tokenizer = createClaudeEstimationTokenizer();
+
+      expect(tokenizer.encodingName).toBe("claude_estimation");
+      expect(tokenizer.countTokens("test")).toBeGreaterThan(0);
+    });
+
+    it("should estimate Claude tokens with content type awareness", () => {
+      const code = `function hello() { console.log("Hello"); }`;
+
+      const proseCount = estimateClaudeTokens(code, "prose");
+      const codeCount = estimateClaudeTokens(code, "code");
+
+      // Code multiplier adds 10% on top of safety multiplier
+      expect(codeCount).toBeGreaterThan(proseCount);
+    });
+
+    it("should provide conservative Claude estimates", () => {
+      const text = "Test message for Claude";
+
+      const normalCount = estimateClaudeTokens(text, "prose");
+      const conservativeCount = estimateClaudeTokensConservative(text);
+
+      // Conservative should be higher (uses code multiplier)
+      expect(conservativeCount).toBeGreaterThanOrEqual(normalCount);
+    });
+
+    it("should have correct Claude encoding constants", () => {
+      expect(CLAUDE_SAFETY_MULTIPLIER).toBe(1.25);
+      expect(CLAUDE_VOCAB_SIZE).toBe(22000);
+      expect(CLAUDE_AVG_CHARS).toBe(3.5);
+    });
+
+    it("should return Claude config from getEncodingConfig", () => {
+      const config = getEncodingConfig("claude_estimation");
+
+      expect(config.name).toBe("claude_estimation");
+      expect(config.vocabSize).toBe(22000);
+      expect(config.averageCharsPerToken).toBe(3.5);
+    });
+
+    it("should count Claude tokens higher than GPT-4 for same text", () => {
+      const testCases = [
+        "Hello, world!",
+        "The quick brown fox jumps over the lazy dog.",
+        "def fibonacci(n): return n if n <= 1 else fibonacci(n-1) + fibonacci(n-2)",
+        "1 + 2 = 3, and 4 * 5 = 20",
+      ];
+
+      for (const text of testCases) {
+        const gpt4Count = countTokens(text, { model: "gpt-4" });
+        const claudeCount = countTokens(text, { model: "claude-4-5-sonnet" });
+
+        // Claude count should be higher due to safety multiplier
+        expect(claudeCount).toBeGreaterThanOrEqual(gpt4Count);
+      }
+    });
+
+    it("should safely estimate max tokens for Claude models", () => {
+      const prompt =
+        "Write a detailed analysis of machine learning algorithms.";
+
+      const estimation = getTokenEstimation(prompt, "claude-4-5-sonnet", {
+        desiredOutputTokens: 2000,
+      });
+
+      // Should fit in context
+      expect(estimation.fitsInContext).toBe(true);
+
+      // Prompt tokens should include safety multiplier
+      expect(estimation.promptTokens).toBeGreaterThan(0);
+
+      // Recommended max should be safe
+      expect(estimation.recommendedMaxTokens).toBeGreaterThan(0);
+      expect(estimation.recommendedMaxTokens).toBeLessThanOrEqual(16384); // Claude Sonnet max output
+    });
+
+    it("should handle empty text with Claude encoding", () => {
+      expect(countTokens("", { encoding: "claude_estimation" })).toBe(0);
+    });
+
+    it("should handle BPETokenizer with claude_estimation", () => {
+      const tokenizer = new BPETokenizer("claude_estimation");
+
+      expect(tokenizer.encodingName).toBe("claude_estimation");
+
+      const count = tokenizer.countTokens("Hello, Claude!");
+      expect(count).toBeGreaterThan(0);
     });
   });
 });

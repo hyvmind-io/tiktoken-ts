@@ -114,14 +114,68 @@ src/
 
 ## Encodings Supported
 
-| Encoding        | Vocab Size | Models                                 | Pattern (JavaScript)   |
-| --------------- | ---------- | -------------------------------------- | ---------------------- |
-| `r50k_base`     | 50,256     | GPT-2, GPT-3 davinci/curie/babbage/ada | `'s\|'t\|'re\|...      |
-| `p50k_base`     | 50,280     | Codex, text-davinci-002/003            | Same as r50k           |
-| `p50k_edit`     | 50,280     | text-davinci-edit-001                  | Same + FIM tokens      |
-| `cl100k_base`   | 100,256    | GPT-4, GPT-3.5-turbo                   | `(?:'[sS]\|...)`       |
-| `o200k_base`    | 200,000    | GPT-4o, GPT-4.1, GPT-5, o1/o3          | Complex Unicode        |
-| `o200k_harmony` | 200,000    | gpt-oss                                | Same + reserved tokens |
+| Encoding            | Vocab Size | Models                                 | Pattern (JavaScript)   |
+| ------------------- | ---------- | -------------------------------------- | ---------------------- |
+| `r50k_base`         | 50,256     | GPT-2, GPT-3 davinci/curie/babbage/ada | `'s\|'t\|'re\|...      |
+| `p50k_base`         | 50,280     | Codex, text-davinci-002/003            | Same as r50k           |
+| `p50k_edit`         | 50,280     | text-davinci-edit-001                  | Same + FIM tokens      |
+| `cl100k_base`       | 100,256    | GPT-4, GPT-3.5-turbo                   | `(?:'[sS]\|...)`       |
+| `o200k_base`        | 200,000    | GPT-4o, GPT-4.1, GPT-5, o1/o3          | Complex Unicode        |
+| `o200k_harmony`     | 200,000    | gpt-oss                                | Same + reserved tokens |
+| `claude_estimation` | ~22,000    | All Claude models                      | Same as cl100k + 1.25x |
+
+## Claude Estimation Strategy
+
+### Why Claude Needs Special Handling
+
+Anthropic's Claude models use a **proprietary tokenizer** that is not publicly available. Unlike OpenAI's tiktoken, there's no vocabulary file we can load to perform exact BPE tokenization.
+
+Based on extensive research (see `claude-tokenizer-research.md`):
+
+1. **Small Vocabulary**: Claude 3+ uses ~22,000 tokens (vs OpenAI's 100K-200K)
+2. **Less Efficient**: Claude produces 16-30% MORE tokens than GPT-4:
+   - English articles: +16%
+   - Math equations: +21%
+   - Python code: +30%
+3. **Lower Chars/Token**: Claude averages ~3.5 chars/token (vs GPT-4's ~4)
+
+### Design Decision: Safe Over-Estimation
+
+We chose to create a dedicated `claude_estimation` encoding that:
+
+1. **Uses cl100k_base patterns** - 70% vocabulary overlap with Claude 1/2
+2. **Applies 1.25x safety multiplier** - Covers the 16-30% overhead
+3. **Uses 3.5 chars/token** - Matches Claude's observed efficiency
+
+```typescript
+// Claude estimation applies safety multiplier automatically
+const claudeCount = countTokens("Hello!", { model: "claude-4-5-sonnet" });
+// Returns: ceiling(base_estimate * 1.25)
+```
+
+### Why Over-Estimation is Safer
+
+For API usage, **over-estimation is always safer** than under-estimation:
+
+- **Under-estimate**: Risk API truncation, failed requests, incomplete responses
+- **Over-estimate**: May reserve slightly more context than needed (minor cost)
+
+The 1.25x multiplier (25% over) covers the worst case (code at +30%) while remaining practical for most use cases.
+
+### For Exact Claude Counts
+
+For billing or precise context management, use Anthropic's official API:
+
+```typescript
+// Using Anthropic's SDK (requires API key)
+const response = await anthropic.messages.countTokens({
+  model: "claude-sonnet-4-5",
+  messages: [{ role: "user", content: "Hello, Claude!" }],
+});
+console.log(response.input_tokens); // Exact count
+```
+
+See: https://docs.anthropic.com/en/docs/build-with-claude/token-counting
 
 ## Algorithm Details
 

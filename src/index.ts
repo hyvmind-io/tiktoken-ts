@@ -178,6 +178,8 @@ export {
   getModelMaxOutputTokens,
   getModelFamily,
   usesO200kEncoding,
+  usesClaudeEstimation,
+  isClaudeModel,
   listModels,
   listModelsByFamily,
 } from "./models.js";
@@ -192,6 +194,8 @@ export {
   CL100K_BASE_CONFIG,
   O200K_BASE_CONFIG,
   P50K_BASE_CONFIG,
+  CLAUDE_ESTIMATION_CONFIG,
+  CLAUDE_SAFETY_MULTIPLIER,
   getEncodingConfig,
 } from "./bpe.js";
 
@@ -219,6 +223,16 @@ export {
   P50K_ENCODING_NAME,
   P50K_AVG_CHARS,
   estimateP50kTokens,
+
+  // claude_estimation (Anthropic Claude - estimation only with safety multiplier)
+  createClaudeEstimationTokenizer,
+  CLAUDE_ENCODING_NAME,
+  CLAUDE_AVG_CHARS,
+  CLAUDE_VOCAB_SIZE,
+  CLAUDE_SAFETY_MULT,
+  estimateClaudeTokens,
+  estimateClaudeTokensConservative,
+  claudeIncludesSafetyMultiplier,
 } from "./encodings/index.js";
 
 // =============================================================================

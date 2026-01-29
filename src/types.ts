@@ -11,6 +11,7 @@
  * - cl100k_base: GPT-4, GPT-3.5-turbo, text-embedding-ada-002
  * - o200k_base: GPT-4o, GPT-4.1, GPT-5, o-series models
  * - o200k_harmony: gpt-oss models
+ * - claude_estimation: Claude models (estimation only, errs on over-counting for safety)
  */
 export type EncodingName =
   | "r50k_base"
@@ -19,6 +20,7 @@ export type EncodingName =
   | "cl100k_base"
   | "o200k_base"
   | "o200k_harmony"
+  | "claude_estimation"
   | "gpt2";
 
 /**

@@ -72,6 +72,37 @@ export const P50K_BASE_CONFIG: EncodingConfig = {
 };
 
 /**
+ * Claude estimation encoding configuration
+ *
+ * IMPORTANT: This is an ESTIMATION encoding, not an exact BPE tokenizer.
+ *
+ * Claude uses a proprietary tokenizer that is NOT publicly available.
+ * This encoding provides "safe" estimates that intentionally over-count
+ * tokens to prevent API truncation issues.
+ *
+ * Based on research findings (see claude-tokenizer-research.md):
+ * - Claude 3+ uses ~22,000 token vocabulary (much smaller than OpenAI's 100K-200K)
+ * - Claude produces 16-30% MORE tokens than GPT-4 for equivalent content
+ * - Average ~3.5 characters per token (vs GPT-4's ~4)
+ *
+ * This encoding applies a 1.25x safety multiplier to cl100k_base estimates.
+ * For exact Claude token counts, use Anthropic's /v1/messages/count_tokens API.
+ *
+ * @see https://docs.anthropic.com/en/docs/build-with-claude/token-counting
+ */
+export const CLAUDE_ESTIMATION_CONFIG: EncodingConfig = {
+  name: "claude_estimation",
+  // Use cl100k_base pattern as base (70% vocabulary overlap with Claude 1/2)
+  patternSplit:
+    /(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+/gu,
+  specialTokens: DEFAULT_SPECIAL_TOKENS,
+  // Claude's estimated vocabulary (~22K) but we use this for informational purposes
+  vocabSize: 22000,
+  // Claude averages ~3.5 chars per token, lower than cl100k_base
+  averageCharsPerToken: 3.5,
+};
+
+/**
  * Get encoding configuration by name
  *
  * @param name - Encoding name
@@ -85,10 +116,25 @@ export function getEncodingConfig(name: EncodingName): EncodingConfig {
       return O200K_BASE_CONFIG;
     case "p50k_base":
       return P50K_BASE_CONFIG;
+    case "claude_estimation":
+      return CLAUDE_ESTIMATION_CONFIG;
     default:
       return O200K_BASE_CONFIG;
   }
 }
+
+/**
+ * Safety multiplier for Claude token estimation.
+ *
+ * Research shows Claude produces 16-30% more tokens than GPT-4 for equivalent content:
+ * - English articles: +16%
+ * - Math equations: +21%
+ * - Python code: +30%
+ *
+ * We use 1.25 (25% over-estimate) as a safe default that covers most cases
+ * without being excessively conservative.
+ */
+export const CLAUDE_SAFETY_MULTIPLIER = 1.25;
 
 /**
  * BPE Tokenizer class
@@ -98,11 +144,13 @@ export class BPETokenizer {
   private readonly config: EncodingConfig;
   private readonly specialTokenPatterns: Map<string, number>;
   private readonly bytePairCache: Map<string, number[]>;
+  private readonly isClaudeEstimation: boolean;
 
   constructor(encoding: EncodingName = "o200k_base") {
     this.config = getEncodingConfig(encoding);
     this.specialTokenPatterns = new Map();
     this.bytePairCache = new Map();
+    this.isClaudeEstimation = encoding === "claude_estimation";
 
     // Pre-compute special token patterns and their token IDs
     this.initializeSpecialTokens();
@@ -193,6 +241,10 @@ export class BPETokenizer {
    * Count the number of tokens in text
    * This uses statistical estimation for efficiency
    *
+   * For Claude models (claude_estimation encoding), this applies a safety
+   * multiplier to ensure estimates err on the side of over-counting,
+   * preventing API truncation issues.
+   *
    * @param text - Input text
    * @returns Estimated token count
    */
@@ -212,7 +264,15 @@ export class BPETokenizer {
       }
     }
 
-    return Math.max(1, Math.round(count));
+    let result = Math.max(1, Math.round(count));
+
+    // Apply Claude safety multiplier for Claude estimation encoding
+    // This ensures we over-estimate to prevent API truncation
+    if (this.isClaudeEstimation) {
+      result = Math.ceil(result * CLAUDE_SAFETY_MULTIPLIER);
+    }
+
+    return result;
   }
 
   /**
