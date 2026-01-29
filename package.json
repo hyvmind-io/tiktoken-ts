@@ -1,0 +1,77 @@
+{
+  "name": "tiktoken-ts",
+  "version": "0.1.0",
+  "description": "A pure TypeScript implementation of OpenAI's tiktoken tokenizer, compatible with tiktoken-rs",
+  "author": "Evandro Camargo",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./encodings": {
+      "import": "./dist/encodings/index.js",
+      "types": "./dist/encodings/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "tiktoken",
+    "tokenizer",
+    "bpe",
+    "openai",
+    "gpt",
+    "gpt-4",
+    "gpt-4o",
+    "claude",
+    "llm",
+    "tokens",
+    "encoding"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/evandrocamargo/tiktoken-ts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/evandrocamargo/tiktoken-ts/issues"
+  },
+  "homepage": "https://github.com/evandrocamargo/tiktoken-ts#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build && npm test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  },
+  "peerDependencies": {},
+  "dependencies": {}
+}
