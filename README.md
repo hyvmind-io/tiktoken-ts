@@ -256,17 +256,144 @@ getEncodingForModel("gpt-4o"); // "o200k_base"
 listModels(); // ["gpt-5", "gpt-4o", "gpt-4", ...]
 ```
 
+## Encoding Selection Guide
+
+This section explains **which encoding to use for each model** and **why**.
+
+### Quick Reference Table
+
+| Model Family                     | Encoding            | Type       | Accuracy       | When to Use                       |
+| -------------------------------- | ------------------- | ---------- | -------------- | --------------------------------- |
+| GPT-4o, GPT-4.1, GPT-5, o-series | `o200k_base`        | Exact BPE  | 100%           | Billing, debugging, decode needed |
+| GPT-4, GPT-3.5-turbo             | `cl100k_base`       | Exact BPE  | 100%           | Billing, debugging, decode needed |
+| Claude (all versions)            | `claude_estimation` | Estimation | ~80-90% (safe) | Context management, API limits    |
+| DeepSeek, Gemini                 | `cl100k_base`       | Estimation | ~70-85%        | Rough estimates only              |
+| Legacy GPT-3                     | `r50k_base`         | Exact BPE  | 100%           | Legacy applications               |
+| Codex                            | `p50k_base`         | Exact BPE  | 100%           | Legacy code models                |
+
+### Detailed Encoding Guide
+
+#### `o200k_base` - Modern OpenAI Models (Recommended)
+
+**Use for:** GPT-4o, GPT-4o-mini, GPT-4.1, GPT-4.1-mini, GPT-5, GPT-5-mini, o1, o3, o4-mini
+
+```typescript
+// Exact tokenization (async, loads vocabulary)
+const tiktoken = await getEncodingAsync("o200k_base");
+const tokens = tiktoken.encode("Hello!"); // Exact tokens
+
+// Or use model name (auto-selects o200k_base)
+const tiktoken = await getEncodingForModelAsync("gpt-4o");
+```
+
+**Characteristics:**
+
+- 200,000 token vocabulary
+- Most efficient for modern text (~4 chars/token)
+- Required for exact billing calculations
+- Supports round-trip encode/decode
+
+#### `cl100k_base` - GPT-4 Era Models
+
+**Use for:** GPT-4, GPT-4-turbo, GPT-3.5-turbo, text-embedding-ada-002, text-embedding-3-\*
+
+```typescript
+const tiktoken = await getEncodingAsync("cl100k_base");
+```
+
+**Characteristics:**
+
+- 100,256 token vocabulary
+- Slightly less efficient than o200k_base
+- Still widely used for embeddings
+
+#### `claude_estimation` - Anthropic Claude Models
+
+**Use for:** All Claude models (claude-4.5-_, claude-4.1-_, claude-4-_, claude-3.5-_, claude-3-_, claude-2._)
+
+```typescript
+// Automatic (recommended)
+const count = countTokens("Hello!", { model: "claude-3-5-sonnet" });
+
+// Explicit encoding
+const count = countTokens("Hello!", { encoding: "claude_estimation" });
+
+// Content-aware (for code, adds extra safety margin)
+import { estimateClaudeTokens } from "tiktoken-ts";
+const codeCount = estimateClaudeTokens(pythonCode, "code");
+```
+
+**IMPORTANT - Claude is estimation only:**
+
+- Claude uses a **proprietary tokenizer** (not publicly available)
+- We apply a **1.25x safety multiplier** to prevent API truncation
+- Estimates are intentionally **conservative** (over-count)
+- For exact counts, use [Anthropic's Token Counting API](https://docs.anthropic.com/en/docs/build-with-claude/token-counting)
+
+**Why 1.25x multiplier?**
+
+- Research shows Claude produces 16-30% more tokens than GPT-4
+- English text: +16%, Math: +21%, Code: +30%
+- 1.25x covers worst-case while remaining practical
+
+#### `p50k_base` / `p50k_edit` - Legacy Codex
+
+**Use for:** code-davinci-002, text-davinci-003, text-davinci-edit-001
+
+```typescript
+const tiktoken = await getEncodingAsync("p50k_base");
+```
+
+#### `r50k_base` - Legacy GPT-3
+
+**Use for:** davinci, curie, babbage, ada (original GPT-3 models)
+
+```typescript
+const tiktoken = await getEncodingAsync("r50k_base");
+```
+
+### Decision Flowchart
+
+```
+Is the model from OpenAI?
+├─ YES → Is it GPT-4o, GPT-4.1, GPT-5, or o-series?
+│        ├─ YES → Use o200k_base (exact)
+│        └─ NO → Is it GPT-4 or GPT-3.5?
+│                 ├─ YES → Use cl100k_base (exact)
+│                 └─ NO → Is it Codex or text-davinci?
+│                          ├─ YES → Use p50k_base (exact)
+│                          └─ NO → Use r50k_base (exact)
+├─ Is the model from Anthropic (Claude)?
+│  └─ YES → Use claude_estimation (safe estimate, 1.25x multiplier)
+└─ Other (DeepSeek, Gemini, etc.)
+   └─ Use cl100k_base estimation (rough approximation only)
+```
+
+### Exact vs Estimation: When to Use Which
+
+| Scenario                  | Use Exact (Async) | Use Estimation (Sync) |
+| ------------------------- | ----------------- | --------------------- |
+| Billing/cost calculation  | ✅                | ❌                    |
+| Debugging tokenization    | ✅                | ❌                    |
+| Need to decode tokens     | ✅                | ❌                    |
+| Context window management | Either            | ✅ (faster)           |
+| Real-time UI feedback     | ❌ (too slow)     | ✅                    |
+| Claude models             | N/A               | ✅ (only option)      |
+| Batch processing          | ✅                | Either                |
+
 ## Supported Encodings
 
-| Encoding            | Vocab Size | Description         | Models                            |
-| ------------------- | ---------- | ------------------- | --------------------------------- |
-| `o200k_base`        | 200,000    | Latest encoding     | GPT-4o, GPT-4.1, GPT-5, o-series  |
-| `o200k_harmony`     | 200,000    | Open source variant | gpt-oss                           |
-| `cl100k_base`       | 100,256    | GPT-4 era           | GPT-4, GPT-3.5-turbo, embeddings  |
-| `p50k_base`         | 50,257     | Codex era           | Code-davinci, text-davinci-003    |
-| `p50k_edit`         | 50,257     | Edit models         | text-davinci-edit-001             |
-| `r50k_base`         | 50,257     | Legacy              | GPT-3 (davinci, curie, etc.)      |
-| `claude_estimation` | ~22,000    | Claude estimation   | All Claude models (safe estimate) |
+| Encoding            | Vocab Size | Type       | Models                            |
+| ------------------- | ---------- | ---------- | --------------------------------- |
+| `o200k_base`        | 200,000    | Exact BPE  | GPT-4o, GPT-4.1, GPT-5, o-series  |
+| `o200k_harmony`     | 200,000    | Exact BPE  | gpt-oss                           |
+| `cl100k_base`       | 100,256    | Exact BPE  | GPT-4, GPT-3.5-turbo, embeddings  |
+| `p50k_base`         | 50,257     | Exact BPE  | Code-davinci, text-davinci-003    |
+| `p50k_edit`         | 50,257     | Exact BPE  | text-davinci-edit-001             |
+| `r50k_base`         | 50,257     | Exact BPE  | GPT-3 (davinci, curie, etc.)      |
+| `claude_estimation` | ~22,000\*  | Estimation | All Claude models (safe estimate) |
+
+\*Claude's actual vocabulary size is estimated at ~22,000 based on research, but the encoding uses cl100k_base patterns with a safety multiplier.
 
 ## Supported Models
 

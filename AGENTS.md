@@ -11,6 +11,109 @@ tiktoken-ts is a pure TypeScript implementation of OpenAI's tiktoken tokenizer, 
 - **Claude-specific estimation** with safety multiplier for Anthropic models
 - **Model configuration** for context limits and encoding selection
 
+## Encoding Selection for AI Agents
+
+### CRITICAL: Which Encoding to Use
+
+When tokenizing text for LLM API calls, selecting the correct encoding is essential. Use this guide:
+
+#### OpenAI Models (Exact BPE Available)
+
+| Model                                         | Encoding      | API                                |
+| --------------------------------------------- | ------------- | ---------------------------------- |
+| gpt-4o, gpt-4o-mini, chatgpt-4o-latest        | `o200k_base`  | Async (exact) or Sync (estimation) |
+| gpt-4.1, gpt-4.1-mini, gpt-4.1-nano           | `o200k_base`  | Async (exact) or Sync (estimation) |
+| gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-turbo    | `o200k_base`  | Async (exact) or Sync (estimation) |
+| o1, o1-mini, o1-preview, o3, o3-mini, o4-mini | `o200k_base`  | Async (exact) or Sync (estimation) |
+| gpt-4, gpt-4-turbo, gpt-4-32k                 | `cl100k_base` | Async (exact) or Sync (estimation) |
+| gpt-3.5-turbo, gpt-3.5-turbo-16k              | `cl100k_base` | Async (exact) or Sync (estimation) |
+| text-embedding-ada-002, text-embedding-3-\*   | `cl100k_base` | Async (exact) or Sync (estimation) |
+| code-davinci-\*, text-davinci-002/003         | `p50k_base`   | Async (exact) or Sync (estimation) |
+| davinci, curie, babbage, ada (GPT-3)          | `r50k_base`   | Async (exact) or Sync (estimation) |
+
+#### Anthropic Claude Models (Estimation Only)
+
+| Model                                   | Encoding            | API       | Notes                   |
+| --------------------------------------- | ------------------- | --------- | ----------------------- |
+| claude-4.5-_, claude-4.1-_, claude-4-\* | `claude_estimation` | Sync only | 1.25x safety multiplier |
+| claude-3.5-_, claude-3-_                | `claude_estimation` | Sync only | 1.25x safety multiplier |
+| claude-2._, claude-instant-_            | `claude_estimation` | Sync only | 1.25x safety multiplier |
+
+**Why Claude is different:**
+
+- Claude uses a **proprietary tokenizer** not publicly available
+- No vocabulary file exists for exact BPE
+- We use `cl100k_base` patterns with a **1.25x safety multiplier**
+- Estimates intentionally **over-count** to prevent API truncation
+- For exact counts, use [Anthropic's Token Counting API](https://docs.anthropic.com/en/docs/build-with-claude/token-counting)
+
+#### Other Models (Approximation Only)
+
+| Model                                    | Encoding      | Notes                                  |
+| ---------------------------------------- | ------------- | -------------------------------------- |
+| DeepSeek (deepseek-chat, deepseek-coder) | `cl100k_base` | Rough approximation (~70-85% accurate) |
+| Gemini (gemini-1.5-_, gemini-2.0-_)      | `cl100k_base` | Rough approximation (~70-85% accurate) |
+
+### Code Examples for AI Agents
+
+```typescript
+// === OPENAI MODELS ===
+
+// For exact token counts (billing, debugging)
+const tiktoken = await getEncodingAsync("o200k_base");
+const exactCount = tiktoken.countTokens(text);
+
+// For fast estimation (context management)
+const estimatedCount = countTokens(text, { model: "gpt-4o" });
+
+// === CLAUDE MODELS ===
+
+// Automatic safe estimation (RECOMMENDED)
+const claudeCount = countTokens(text, { model: "claude-3-5-sonnet" });
+
+// Explicit encoding
+const claudeCount2 = countTokens(text, { encoding: "claude_estimation" });
+
+// Content-aware (code gets extra +10% safety)
+import { estimateClaudeTokens } from "tiktoken-ts";
+const codeCount = estimateClaudeTokens(pythonCode, "code");
+
+// === CHECKING ENCODING TYPE ===
+
+import {
+  usesClaudeEstimation,
+  isClaudeModel,
+  getEncodingForModel,
+} from "tiktoken-ts";
+
+if (isClaudeModel("claude-3-opus")) {
+  // Use estimation API only
+  const count = countTokens(text, { model: "claude-3-opus" });
+}
+
+if (usesClaudeEstimation("claude-4-5-sonnet")) {
+  console.log("Warning: Token count is an estimate with 1.25x safety margin");
+}
+
+const encoding = getEncodingForModel("gpt-4o"); // Returns "o200k_base"
+```
+
+### Decision Rules for AI Agents
+
+1. **Need exact token count?** → Use async API with appropriate encoding
+2. **OpenAI model?** → Use model's encoding (o200k_base for modern, cl100k_base for GPT-4 era)
+3. **Claude model?** → Use `claude_estimation` (sync only, includes safety margin)
+4. **Need speed over accuracy?** → Use sync estimation API
+5. **Unknown model?** → Default to `o200k_base` estimation
+
+### Safety Multipliers Explained
+
+| Encoding                               | Multiplier | Reason                                            |
+| -------------------------------------- | ---------- | ------------------------------------------------- |
+| OpenAI (o200k_base, cl100k_base, etc.) | 1.0x       | Exact BPE available                               |
+| `claude_estimation`                    | 1.25x      | Claude uses 16-30% more tokens than GPT-4         |
+| `claude_estimation` + code content     | 1.375x     | Code is particularly inefficient on Claude (+30%) |
+
 ## Build & Test Commands
 
 ```bash
