@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  workflow_dispatch: {}
+  release:
+    types: [published]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - name: Check versions
+        run: |
+          node --version
+          npm --version
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Test
+        run: pnpm run test
+
+      - name: Publish release
+        if: ${{ !github.event.release.prerelease }}
+        run: npm publish --tag latest --access=public
+
+      - name: Publish pre-release
+        if: ${{ github.event.release.prerelease }}
+        run: npm publish --tag next --access=public
