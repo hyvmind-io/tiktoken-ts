@@ -34,7 +34,3 @@ yarn-error.log*
 tmp/
 temp/
 *.tmp
-
-# Package manager locks (keep package-lock.json)
-yarn.lock
-pnpm-lock.yaml
