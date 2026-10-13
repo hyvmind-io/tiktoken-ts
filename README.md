@@ -178,7 +178,7 @@ const count = countTokens("Hello, world!", { encoding: "cl100k_base" });
 
 #### `countChatTokens(messages, model?)`
 
-Count tokens in chat messages, including message overhead.
+Count tokens in chat messages, including message overhead. Optional `name`, `function_call`, `tool_calls` (`[{ function: { name, arguments } }]`) and `refusal` fields are counted the same way as tiktoken-rs `num_tokens_from_messages`.
 
 ```typescript
 const messages = [

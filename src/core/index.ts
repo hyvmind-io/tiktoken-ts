@@ -53,6 +53,7 @@ export {
   type TokenizerName,
   getTokenizerForModel,
   getContextSize,
+  findContextSize,
   getExactContextSize,
   EXACT_CONTEXT_SIZES,
 } from "./model-to-encoding.js";

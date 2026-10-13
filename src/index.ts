@@ -64,6 +64,7 @@ export type {
   ModelConfig,
   TokenEstimation,
   ChatMessage,
+  ChatFunctionCall,
   TokenCountOptions,
   MaxTokensOptions,
 } from "./types.js";
@@ -113,6 +114,7 @@ export {
   type TokenizerName,
   getTokenizerForModel,
   getContextSize,
+  findContextSize,
   getExactContextSize,
   EXACT_CONTEXT_SIZES,
 } from "./core/index.js";

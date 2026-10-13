@@ -62,6 +62,37 @@ describe("Byte-Pair Encoding Algorithm", () => {
     });
   });
 
+  describe("bytePairEncode long pieces", () => {
+    // a, b, ab, abab: merges ab everywhere, then pairs abab leftmost-first
+    const vocab: Vocabulary = new Map([
+      [bytesToKey(new Uint8Array([97])), 0],
+      [bytesToKey(new Uint8Array([98])), 1],
+      [bytesToKey(new Uint8Array([97, 98])), 2],
+      [bytesToKey(new Uint8Array([97, 98, 97, 98])), 3],
+    ]);
+    const piece = (pairs: number): Uint8Array =>
+      new TextEncoder().encode("ab".repeat(pairs));
+
+    it("should merge identically above the heap cutoff", () => {
+      expect(bytePairEncode(piece(60), vocab)).toEqual(Array(30).fill(3));
+      expect(bytePairEncode(piece(61), vocab)).toEqual([
+        ...Array(30).fill(3),
+        2,
+      ]);
+    });
+
+    it("should match the short-piece path at the cutoff boundary", () => {
+      // 98 bytes -> linear path, 100 bytes -> heap path
+      expect(bytePairEncode(piece(49), vocab)).toEqual([
+        ...Array(24).fill(3),
+        2,
+      ]);
+      expect(bytePairEncode(piece(50), vocab)).toEqual([
+        ...Array(25).fill(3),
+      ]);
+    });
+  });
+
   describe("bytePairEncode", () => {
     it("should encode single byte correctly", () => {
       // Simple vocabulary with single bytes

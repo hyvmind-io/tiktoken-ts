@@ -126,6 +126,128 @@ function _bytePairMerge(
   return parts;
 }
 
+const NO_RANK = Number.MAX_SAFE_INTEGER;
+
+/**
+ * Heap-based BPE merge for long pieces: O(m log n) instead of O(mn).
+ * Port of tiktoken 0.13 `_byte_pair_merge_large`.
+ */
+function _bytePairMergeLarge(ranks: Vocabulary, piece: Uint8Array): Rank[] {
+  const n = piece.length;
+  const rankOf = (start: number, end: number): Rank =>
+    ranks.get(bytesToKey(piece.subarray(start, end))) ?? NO_RANK;
+
+  // Per-position linked-list state; position i holds the token starting at i
+  const prev = new Int32Array(n);
+  const end = new Int32Array(n);
+  const nextEnd = new Int32Array(n);
+  const nextRank = new Float64Array(n).fill(NO_RANK);
+  const curRank = new Float64Array(n).fill(NO_RANK);
+
+  // Min-heap of [rank, start], ties broken by lowest start
+  const heapRank: number[] = [];
+  const heapStart: number[] = [];
+  const less = (a: number, b: number): boolean =>
+    heapRank[a] < heapRank[b] ||
+    (heapRank[a] === heapRank[b] && heapStart[a] < heapStart[b]);
+  const swap = (a: number, b: number): void => {
+    [heapRank[a], heapRank[b]] = [heapRank[b], heapRank[a]];
+    [heapStart[a], heapStart[b]] = [heapStart[b], heapStart[a]];
+  };
+  const push = (rank: Rank, start: number): void => {
+    heapRank.push(rank);
+    heapStart.push(start);
+    let i = heapRank.length - 1;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (!less(i, parent)) break;
+      swap(i, parent);
+      i = parent;
+    }
+  };
+  const pop = (): void => {
+    const last = heapRank.length - 1;
+    swap(0, last);
+    heapRank.pop();
+    heapStart.pop();
+    let i = 0;
+    for (;;) {
+      const l = 2 * i + 1;
+      const r = l + 1;
+      let m = i;
+      if (l < last && less(l, m)) m = l;
+      if (r < last && less(r, m)) m = r;
+      if (m === i) break;
+      swap(i, m);
+      i = m;
+    }
+  };
+
+  for (let i = 0; i < n; i++) {
+    prev[i] = i - 1;
+    end[i] = i + 1;
+    nextEnd[i] = i + 2;
+    if (i < n - 1) {
+      const rank = rankOf(i, i + 2);
+      if (rank !== NO_RANK) {
+        push(rank, i);
+        nextRank[i] = rank;
+      }
+    }
+  }
+
+  const potentialMerge = (start: number, nextEndItem: number): void => {
+    nextEnd[start] = nextEndItem;
+    nextRank[start] = NO_RANK;
+    if (nextEndItem <= n) {
+      const rank = rankOf(start, nextEndItem);
+      if (rank !== NO_RANK) {
+        push(rank, start);
+        nextRank[start] = rank;
+      }
+    }
+  };
+
+  while (heapRank.length > 0) {
+    const rank = heapRank[0];
+    const leftStart = heapStart[0];
+    pop();
+    if (rank !== nextRank[leftStart]) {
+      continue; // invalidated merge
+    }
+    const rightStart = end[leftStart];
+    const rightEnd = nextEnd[leftStart];
+    const rightNextEnd = nextEnd[rightStart];
+
+    curRank[leftStart] = nextRank[leftStart];
+    end[leftStart] = rightEnd;
+    potentialMerge(leftStart, rightNextEnd);
+    if (rightEnd < n) {
+      prev[rightEnd] = leftStart;
+    }
+    if (leftStart > 0) {
+      potentialMerge(prev[leftStart], rightEnd);
+    }
+    nextRank[rightStart] = NO_RANK;
+  }
+
+  const result: Rank[] = [];
+  for (let i = 0; i < n; i = end[i]) {
+    if (curRank[i] !== NO_RANK) {
+      result.push(curRank[i]);
+    } else {
+      const rank = rankOf(i, end[i]);
+      if (rank === NO_RANK) {
+        throw new Error(
+          `Unknown token: ${Array.from(piece.subarray(i, end[i])).join(",")}`,
+        );
+      }
+      result.push(rank);
+    }
+  }
+  return result;
+}
+
 /**
  * Encode a byte sequence using BPE
  *
@@ -141,6 +263,11 @@ export function bytePairEncode(piece: Uint8Array, ranks: Vocabulary): Rank[] {
       throw new Error(`Unknown byte: ${piece[0]}`);
     }
     return [rank];
+  }
+
+  // Same cutoff as upstream tiktoken: the linear scan wins on short pieces
+  if (piece.length >= 100) {
+    return _bytePairMergeLarge(ranks, piece);
   }
 
   const parts = _bytePairMerge(ranks, piece);

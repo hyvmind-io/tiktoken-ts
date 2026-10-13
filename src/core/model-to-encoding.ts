@@ -28,9 +28,9 @@ const MODEL_PREFIX_TO_TOKENIZER: Array<[string, TokenizerName]> = [
   // Reasoning models
   ["o1-", "o200k_base"],
   ["o3-", "o200k_base"],
-  ["o4-", "o200k_base"],
+  ["o4-mini-", "o200k_base"],
   // Chat models
-  ["gpt-5-", "o200k_base"],
+  ["gpt-5", "o200k_base"],
   ["gpt-4.5-", "o200k_base"],
   ["gpt-4.1-", "o200k_base"],
   ["chatgpt-4o-", "o200k_base"],
@@ -39,12 +39,13 @@ const MODEL_PREFIX_TO_TOKENIZER: Array<[string, TokenizerName]> = [
   ["gpt-3.5-turbo-", "cl100k_base"],
   ["gpt-35-turbo-", "cl100k_base"], // Azure deployment name
   ["gpt-oss-", "o200k_harmony"],
-  // Fine-tuned models
-  ["ft:gpt-4o", "o200k_base"],
-  ["ft:gpt-4", "cl100k_base"],
-  ["ft:gpt-3.5-turbo", "cl100k_base"],
-  ["ft:davinci-002", "cl100k_base"],
-  ["ft:babbage-002", "cl100k_base"],
+];
+
+/**
+ * Prefixes not present upstream, checked after MODEL_PREFIX_TO_TOKENIZER
+ */
+const EXTRA_MODEL_PREFIX_TO_TOKENIZER: Array<[string, TokenizerName]> = [
+  ["codex-mini", "o200k_base"],
 ];
 
 /**
@@ -56,11 +57,10 @@ const MODEL_TO_TOKENIZER: Map<string, TokenizerName> = new Map([
   // Reasoning models
   ["o1", "o200k_base"],
   ["o3", "o200k_base"],
-  ["o4", "o200k_base"],
+  ["o4-mini", "o200k_base"],
   // Chat models
   ["gpt-5", "o200k_base"],
   ["gpt-4.1", "o200k_base"],
-  ["chatgpt-4o-latest", "o200k_base"],
   ["gpt-4o", "o200k_base"],
   ["gpt-4", "cl100k_base"],
   ["gpt-3.5-turbo", "cl100k_base"],
@@ -121,14 +121,23 @@ const MODEL_TO_TOKENIZER: Map<string, TokenizerName> = new Map([
 export function getTokenizerForModel(
   modelName: string,
 ): TokenizerName | undefined {
-  // First, check exact match
+  // Fine-tuned models resolve via their base model
+  if (modelName.startsWith("ft:")) {
+    const rest = modelName.slice(3);
+    return getTokenizerForModel(rest.split(":")[0] ?? rest);
+  }
+
   const exactMatch = MODEL_TO_TOKENIZER.get(modelName);
   if (exactMatch) {
     return exactMatch;
   }
 
-  // Then, check prefix matches
   for (const [prefix, tokenizer] of MODEL_PREFIX_TO_TOKENIZER) {
+    if (modelName.startsWith(prefix)) {
+      return tokenizer;
+    }
+  }
+  for (const [prefix, tokenizer] of EXTRA_MODEL_PREFIX_TO_TOKENIZER) {
     if (modelName.startsWith(prefix)) {
       return tokenizer;
     }
@@ -143,19 +152,45 @@ export function getTokenizerForModel(
  * Reference: https://github.com/zurawiki/tiktoken-rs/blob/main/tiktoken-rs/src/model.rs
  */
 export function getContextSize(model: string): number {
+  return findContextSize(model) ?? 4096;
+}
+
+/**
+ * Context size for a model, or undefined when the model is not recognized
+ * (mirrors tiktoken-rs get_context_size returning Option)
+ */
+export function findContextSize(model: string): number | undefined {
   // Handle fine-tuned models
   if (model.startsWith("ft:")) {
     const rest = model.slice(3);
     const base = rest.split(":")[0] ?? rest;
-    return getContextSize(base);
+    return findContextSize(base);
   }
 
   // Check prefixes (most specific first)
+  if (model.startsWith("gpt-6")) {
+    return 1_050_000;
+  }
+  if (model.startsWith("gpt-5.4-mini") || model.startsWith("gpt-5.4-nano")) {
+    return 400_000;
+  }
+  if (model.startsWith("gpt-5.4")) {
+    return 1_050_000;
+  }
+  if (model.startsWith("gpt-5.3-codex-spark")) {
+    return 128_000;
+  }
   if (model.startsWith("gpt-5")) {
     return 400_000;
   }
+  if (model.startsWith("codex-mini")) {
+    return 200_000;
+  }
   if (model.startsWith("gpt-oss")) {
     return 131_072;
+  }
+  if (model.startsWith("o1-mini") || model.startsWith("o1-preview")) {
+    return 128_000;
   }
   if (
     model.startsWith("o1") ||
@@ -167,7 +202,10 @@ export function getContextSize(model: string): number {
   if (model.startsWith("gpt-4.1")) {
     return 1_047_576;
   }
-  if (model.startsWith("gpt-4o")) {
+  if (model.startsWith("chatgpt-4o") || model.startsWith("gpt-4o")) {
+    return 128_000;
+  }
+  if (model.startsWith("gpt-4.5")) {
     return 128_000;
   }
   if (model.startsWith("gpt-4-turbo-")) {
@@ -194,7 +232,11 @@ export function getContextSize(model: string): number {
   if (model.startsWith("gpt-3.5-turbo-16k")) {
     return 16_385;
   }
-  if (model.startsWith("gpt-3.5-turbo")) {
+  if (
+    model.startsWith("gpt-3.5-turbo") ||
+    model.startsWith("gpt-3.5") ||
+    model.startsWith("gpt-35-turbo")
+  ) {
     return 16_385;
   }
   if (
@@ -230,8 +272,7 @@ export function getContextSize(model: string): number {
     return 8192;
   }
 
-  // Default
-  return 4096;
+  return undefined;
 }
 
 /**

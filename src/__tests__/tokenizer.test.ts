@@ -53,6 +53,11 @@ import {
   isAscii,
   countCodePoints,
 
+  // Exact model mappings
+  getTokenizerForModel,
+  findContextSize,
+  getContextSize,
+
   // Types
   type ChatMessage,
 } from "../index.js";
@@ -227,6 +232,29 @@ function fibonacci(n: number): number {
       // Both should be reasonable
       expect(countGPT4o).toBeGreaterThan(0);
       expect(countGPT35).toBeGreaterThan(0);
+    });
+
+    it("should count tool_calls, function_call and refusal", () => {
+      const plain: ChatMessage[] = [{ role: "assistant", content: "" }];
+      const call = { name: "get_weather", arguments: '{"location": "Paris"}' };
+      const base = countChatTokens(plain, "gpt-4o");
+
+      const withTool = countChatTokens(
+        [{ ...plain[0], tool_calls: [{ function: call }] }],
+        "gpt-4o",
+      );
+      const withFunction = countChatTokens(
+        [{ ...plain[0], function_call: call }],
+        "gpt-4o",
+      );
+      const withRefusal = countChatTokens(
+        [{ ...plain[0], refusal: "I can't help with that." }],
+        "gpt-4o",
+      );
+
+      expect(withTool).toBeGreaterThan(base);
+      expect(withFunction).toBe(withTool);
+      expect(withRefusal).toBeGreaterThan(base);
     });
   });
 
@@ -1369,5 +1397,39 @@ describe("Accuracy Validation", () => {
         expect(estimation.warning).toBeDefined();
       }
     });
+  });
+});
+
+describe("Exact model mappings (tiktoken-rs parity)", () => {
+  it.each([
+    ["gpt-5.4-pro", "o200k_base"],
+    ["gpt-5_future", "o200k_base"],
+    ["o4-mini-2026-06-02", "o200k_base"],
+    ["codex-mini-latest", "o200k_base"],
+    ["ft:gpt-5:org:name", "o200k_base"],
+    ["ft:davinci-002:org", "cl100k_base"],
+    ["gpt-6_future", undefined],
+    ["o4", undefined],
+    ["o4-pro", undefined],
+  ])("getTokenizerForModel(%s) -> %s", (model, expected) => {
+    expect(getTokenizerForModel(model)).toBe(expected);
+  });
+
+  it.each([
+    ["gpt-6", 1_050_000],
+    ["gpt-5.4", 1_050_000],
+    ["gpt-5.4-mini", 400_000],
+    ["gpt-5.3-codex-spark", 128_000],
+    ["codex-mini", 200_000],
+    ["o1-mini", 128_000],
+    ["gpt-4.5-preview", 128_000],
+    ["ft:gpt-4o:org:name", 128_000],
+  ])("findContextSize(%s) -> %d", (model, expected) => {
+    expect(findContextSize(model)).toBe(expected);
+  });
+
+  it("should report unknown models as undefined, defaulting only in getContextSize", () => {
+    expect(findContextSize("foo")).toBeUndefined();
+    expect(getContextSize("foo")).toBe(4096);
   });
 });

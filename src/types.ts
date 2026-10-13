@@ -130,6 +130,20 @@ export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
   name?: string;
+  /** Legacy function call (OpenAI API shape) */
+  function_call?: ChatFunctionCall;
+  /** Tool calls made by the assistant (OpenAI API shape) */
+  tool_calls?: Array<{ function: ChatFunctionCall }>;
+  /** Assistant refusal message */
+  refusal?: string;
+}
+
+/**
+ * Function invocation attached to a chat message
+ */
+export interface ChatFunctionCall {
+  name: string;
+  arguments: string;
 }
 
 /**

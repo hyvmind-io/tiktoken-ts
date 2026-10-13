@@ -13,7 +13,6 @@ import type {
 } from "./types.js";
 import { BPETokenizer } from "./bpe.js";
 import {
-  getModelConfig,
   getEncodingForModel,
   getModelContextLimit,
   getModelMaxOutputTokens,
@@ -149,32 +148,35 @@ export function countChatTokens(
   const encoding = getEncodingForModel(model);
   const tokenizer = getOrCreateTokenizer(encoding);
 
+  // Overheads from the OpenAI cookbook, as in tiktoken-rs num_tokens_from_messages
+  const [tokensPerMessage, tokensPerName] =
+    model === "gpt-3.5-turbo-0301" ? [4, -1] : [3, 1];
+  const functionCallOverhead = 1;
+
   let totalTokens = 0;
-
-  // Token overhead per message varies by model
-  // For GPT-4o family: 3 tokens per message (role + separators)
-  // For GPT-3.5/4: 4 tokens per message
-  const config = getModelConfig(model);
-  const tokensPerMessage =
-    config?.family === "gpt-3.5" || config?.family === "gpt-4" ? 4 : 3;
-
   for (const message of messages) {
-    // Message overhead
     totalTokens += tokensPerMessage;
-
-    // Role token
-    totalTokens += 1;
-
-    // Content tokens
+    totalTokens += tokenizer.countTokens(message.role);
     totalTokens += tokenizer.countTokens(message.content);
-
-    // Name field (if present) adds extra tokens
     if (message.name) {
-      totalTokens += tokenizer.countTokens(message.name) + 1;
+      totalTokens += tokenizer.countTokens(message.name) + tokensPerName;
+    }
+    const calls = message.tool_calls?.map((call) => call.function) ?? [];
+    if (message.function_call) {
+      calls.push(message.function_call);
+    }
+    for (const call of calls) {
+      totalTokens +=
+        tokenizer.countTokens(call.name) +
+        tokenizer.countTokens(call.arguments) +
+        functionCallOverhead;
+    }
+    if (message.refusal) {
+      totalTokens += tokenizer.countTokens(message.refusal);
     }
   }
 
-  // Assistant priming (3 tokens for "<|im_start|>assistant\n")
+  // Reply priming: <|start|>assistant<|message|>
   totalTokens += 3;
 
   return totalTokens;

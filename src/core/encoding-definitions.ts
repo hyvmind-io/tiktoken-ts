@@ -41,6 +41,12 @@ export interface EncodingDefinition {
   expectedVocabSize: number;
 }
 
+// Upstream (tiktoken 0.13+):
+// '(?:[sdmt]|ll|ve|re)| ?\p{L}++| ?\p{N}++| ?[^\s\p{L}\p{N}]++|\s++$|\s+(?!\S)|\s
+// JS lacks possessive quantifiers; dropping them matches identically here.
+const GPT2_STYLE_PATTERN =
+  "'(?:[sdmt]|ll|ve|re)| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+$|\\s+(?!\\S)|\\s";
+
 /**
  * r50k_base encoding (GPT-2)
  *
@@ -49,10 +55,7 @@ export interface EncodingDefinition {
  */
 export const R50K_BASE: EncodingDefinition = {
   name: "r50k_base",
-  // Pattern from tiktoken-rs:
-  // 's|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
-  pattern:
-    "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+  pattern: GPT2_STYLE_PATTERN,
   specialTokens: {
     [SPECIAL_TOKENS.ENDOFTEXT]: 50256,
   },
@@ -69,9 +72,7 @@ export const R50K_BASE: EncodingDefinition = {
  */
 export const P50K_BASE: EncodingDefinition = {
   name: "p50k_base",
-  // Same pattern as r50k_base
-  pattern:
-    "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+  pattern: GPT2_STYLE_PATTERN,
   specialTokens: {
     [SPECIAL_TOKENS.ENDOFTEXT]: 50256,
   },
@@ -88,9 +89,7 @@ export const P50K_BASE: EncodingDefinition = {
  */
 export const P50K_EDIT: EncodingDefinition = {
   name: "p50k_edit",
-  // Same pattern as p50k_base
-  pattern:
-    "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+  pattern: GPT2_STYLE_PATTERN,
   specialTokens: {
     [SPECIAL_TOKENS.ENDOFTEXT]: 50256,
     [SPECIAL_TOKENS.FIM_PREFIX]: 50281,
@@ -111,14 +110,11 @@ export const P50K_EDIT: EncodingDefinition = {
  */
 export const CL100K_BASE: EncodingDefinition = {
   name: "cl100k_base",
-  // Pattern from tiktoken-rs:
-  // (?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+
-  //
-  // JavaScript equivalent - (?i:...) is not supported, so we use case-insensitive alternatives
-  // Note: JavaScript doesn't support inline case-insensitive groups (?i:)
-  // We need to manually expand the contractions pattern
+  // Upstream (tiktoken 0.13+):
+  // '(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}++|\p{N}{1,3}+| ?[^\s\p{L}\p{N}]++[\r\n]*+|\s++$|\s*[\r\n]|\s+(?!\S)|\s
+  // JS: (?i:) expanded by hand, possessive quantifiers dropped (same matches)
   pattern:
-    "(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
+    "'(?:[sSdDmMtT]|[lL][lL]|[vV][eE]|[rR][eE])|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s+$|\\s*[\\r\\n]|\\s+(?!\\S)|\\s",
   specialTokens: {
     [SPECIAL_TOKENS.ENDOFTEXT]: 100257,
     [SPECIAL_TOKENS.FIM_PREFIX]: 100258,
