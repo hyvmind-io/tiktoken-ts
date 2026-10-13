@@ -23,7 +23,8 @@ When tokenizing text for LLM API calls, selecting the correct encoding is essent
 | --------------------------------------------- | ------------- | ---------------------------------- |
 | gpt-4o, gpt-4o-mini, chatgpt-4o-latest        | `o200k_base`  | Async (exact) or Sync (estimation) |
 | gpt-4.1, gpt-4.1-mini, gpt-4.1-nano           | `o200k_base`  | Async (exact) or Sync (estimation) |
-| gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-turbo    | `o200k_base`  | Async (exact) or Sync (estimation) |
+| gpt-5, gpt-5-mini, gpt-5-nano, gpt-5.x (any `gpt-5*`) | `o200k_base`  | Async (exact) or Sync (estimation) |
+| gpt-5.x-codex, codex-mini                     | `o200k_base`  | Async (exact) or Sync (estimation) |
 | o1, o1-mini, o1-preview, o3, o3-mini, o4-mini | `o200k_base`  | Async (exact) or Sync (estimation) |
 | gpt-4, gpt-4-turbo, gpt-4-32k                 | `cl100k_base` | Async (exact) or Sync (estimation) |
 | gpt-3.5-turbo, gpt-3.5-turbo-16k              | `cl100k_base` | Async (exact) or Sync (estimation) |

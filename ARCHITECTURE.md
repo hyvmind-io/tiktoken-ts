@@ -233,16 +233,17 @@ Special tokens are handled separately from the BPE vocabulary:
 ### cl100k_base Pattern
 
 ```
-(?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD])
+'(?:[sSdDmMtT]|[lL][lL]|[vV][eE]|[rR][eE])
 |[^\r\n\p{L}\p{N}]?\p{L}+
 |\p{N}{1,3}
 | ?[^\s\p{L}\p{N}]+[\r\n]*
-|\s*[\r\n]+
+|\s+$
+|\s*[\r\n]
 |\s+(?!\S)
-|\s+
+|\s
 ```
 
-Note: JavaScript doesn't support `(?i:...)` inline case-insensitive groups, so we expand them manually.
+Ported from tiktoken 0.13+. JavaScript doesn't support `(?i:...)` inline groups, so they are expanded by hand; it also lacks possessive quantifiers (`++`, `?+`), which are dropped without changing matches. r50k/p50k use the same shape: `'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+$|\s+(?!\S)|\s`.
 
 ### o200k_base Pattern
 
@@ -258,19 +259,22 @@ Note: JavaScript doesn't support `(?i:...)` inline case-insensitive groups, so w
 
 ## Context Sizes (from tiktoken-rs)
 
-Key model context sizes:
+`findContextSize()` mirrors tiktoken-rs `get_context_size` and returns `undefined` for unknown models; `getContextSize()` falls back to 4096. `EXACT_CONTEXT_SIZES` overrides specific snapshots that the prefix rules size too coarsely.
 
-| Model         | Context Size |
-| ------------- | ------------ |
-| gpt-5         | 400,000      |
-| gpt-5-mini    | 200,000      |
-| gpt-4.1       | 1,047,576    |
-| gpt-4o        | 128,000      |
-| gpt-4-turbo   | 128,000      |
-| gpt-4         | 8,192        |
-| gpt-4-32k     | 32,768       |
-| gpt-3.5-turbo | 16,385       |
-| o1/o3/o4      | 200,000      |
+| Model                                                       | Context Size |
+| ----------------------------------------------------------- | ------------ |
+| gpt-6\*, gpt-5.4, gpt-5.4-pro                               | 1,050,000    |
+| gpt-4.1, gpt-4.1-mini, gpt-4.1-nano                         | 1,047,576    |
+| gpt-5, gpt-5-mini, gpt-5-nano, gpt-5.4-mini, gpt-5.x-codex  | 400,000      |
+| o1, o3, o3-mini, o3-pro, o4-mini, codex-mini                | 200,000      |
+| gpt-oss                                                     | 131,072      |
+| gpt-4o, chatgpt-4o, gpt-4.5, gpt-4-turbo                    | 128,000      |
+| o1-mini, o1-preview, gpt-5.3-codex-spark                    | 128,000      |
+| gpt-4-32k                                                   | 32,768       |
+| gpt-3.5-turbo                                               | 16,385       |
+| gpt-4                                                       | 8,192        |
+
+gpt-6 has a context size but no tokenizer mapping upstream, so `getTokenizerForModel("gpt-6")` returns `undefined`; the sync API estimates it with the `o200k_base` default.
 
 ## Migration from Estimation to Exact Mode
 

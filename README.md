@@ -253,7 +253,7 @@ getModelMaxOutputTokens("gpt-4o"); // 16384
 getEncodingForModel("gpt-4o"); // "o200k_base"
 
 // List all supported models
-listModels(); // ["gpt-5", "gpt-4o", "gpt-4", ...]
+listModels(); // ["gpt-5.4", "gpt-5.4-pro", ..., "gpt-4o", ...]
 ```
 
 ## Encoding Selection Guide
@@ -269,13 +269,13 @@ This section explains **which encoding to use for each model** and **why**.
 | Claude (all versions)            | `claude_estimation` | Estimation | ~80-90% (safe) | Context management, API limits    |
 | DeepSeek, Gemini                 | `cl100k_base`       | Estimation | ~70-85%        | Rough estimates only              |
 | Legacy GPT-3                     | `r50k_base`         | Exact BPE  | 100%           | Legacy applications               |
-| Codex                            | `p50k_base`         | Exact BPE  | 100%           | Legacy code models                |
+| Legacy Codex (code-davinci-\*)   | `p50k_base`         | Exact BPE  | 100%           | Legacy code models                |
 
 ### Detailed Encoding Guide
 
 #### `o200k_base` - Modern OpenAI Models (Recommended)
 
-**Use for:** GPT-4o, GPT-4o-mini, GPT-4.1, GPT-4.1-mini, GPT-5, GPT-5-mini, o1, o3, o4-mini
+**Use for:** GPT-4o, GPT-4o-mini, GPT-4.1, GPT-4.1-mini, GPT-5.x (incl. Codex), o1, o3, o4-mini
 
 ```typescript
 // Exact tokenization (async, loads vocabulary)
@@ -399,14 +399,16 @@ Is the model from OpenAI?
 
 ### OpenAI
 
-- **GPT-5 series**: gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-turbo
+- **GPT-5 series**: gpt-5.4 (+ pro/mini/nano), gpt-5.2, gpt-5.2-pro, gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-turbo
+- **Codex**: gpt-5.3-codex, gpt-5.3-codex-spark, gpt-5.2-codex, gpt-5.1-codex, gpt-5.1-codex-mini, gpt-5-codex, codex-mini
 - **GPT-4.1 series**: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano (1M context!)
 - **GPT-4o series**: gpt-4o, gpt-4o-mini, chatgpt-4o-latest
 - **GPT-4 series**: gpt-4, gpt-4-turbo, gpt-4-32k
 - **GPT-3.5 series**: gpt-3.5-turbo, gpt-3.5-turbo-16k
-- **o-series**: o1, o1-mini, o3, o3-mini, o4-mini (reasoning models)
+- **o-series**: o1, o1-mini, o3, o3-mini, o3-pro, o4-mini (reasoning models)
 - **Embeddings**: text-embedding-ada-002, text-embedding-3-small/large
-- **Fine-tuned**: ft:gpt-4o, ft:gpt-4, ft:gpt-3.5-turbo
+- **Fine-tuned**: any `ft:<base>:...` name resolves via its base model
+- **GPT-6**: context size only (1,050,000); no upstream tokenizer mapping, so estimation uses the `o200k_base` default
 
 ### Anthropic Claude (Safe Estimation)
 

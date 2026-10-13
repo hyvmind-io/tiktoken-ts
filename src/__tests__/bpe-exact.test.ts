@@ -87,9 +87,7 @@ describe("Byte-Pair Encoding Algorithm", () => {
         ...Array(24).fill(3),
         2,
       ]);
-      expect(bytePairEncode(piece(50), vocab)).toEqual([
-        ...Array(25).fill(3),
-      ]);
+      expect(bytePairEncode(piece(50), vocab)).toEqual([...Array(25).fill(3)]);
     });
   });
 

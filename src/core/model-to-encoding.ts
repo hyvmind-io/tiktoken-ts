@@ -276,8 +276,9 @@ export function findContextSize(model: string): number | undefined {
 }
 
 /**
- * Extended context limits including specific model versions
- * from tiktoken-rs model.rs get_context_size match statement
+ * Exact-name context limits, consulted by getExactContextSize before the
+ * prefix rules. Also holds snapshots the prefix rules size too coarsely
+ * (gpt-4-turbo, gpt-4-vision-preview, gpt-3.5-turbo-instruct/-0301).
  */
 export const EXACT_CONTEXT_SIZES: Record<string, number> = {
   // o-series reasoning models
@@ -296,12 +297,12 @@ export const EXACT_CONTEXT_SIZES: Record<string, number> = {
   // GPT-5 series
   "gpt-5": 400_000,
   "gpt-5-2025-03-22": 400_000,
-  "gpt-5-mini": 200_000,
-  "gpt-5-mini-2025-03-22": 200_000,
+  "gpt-5-mini": 400_000,
+  "gpt-5-mini-2025-03-22": 400_000,
   "gpt-5-turbo": 400_000,
   "gpt-5-turbo-2025-06-09": 400_000,
-  "gpt-5-nano": 200_000,
-  "gpt-5-nano-2025-09-14": 200_000,
+  "gpt-5-nano": 400_000,
+  "gpt-5-nano-2025-09-14": 400_000,
 
   // GPT-4.5 preview
   "gpt-4.5-preview": 128_000,

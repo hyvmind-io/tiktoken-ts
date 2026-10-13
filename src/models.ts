@@ -7,7 +7,10 @@
  */
 
 import type { EncodingName, ModelConfig, ModelFamily } from "./types.js";
-import { getExactContextSize } from "./core/model-to-encoding.js";
+import {
+  findContextSize,
+  getExactContextSize,
+} from "./core/model-to-encoding.js";
 
 /**
  * Helper to create model config with context size from tiktoken-rs
@@ -34,22 +37,24 @@ function createModelConfig(
  */
 export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   // ==========================================================================
-  // GPT-5 Series (400K context from tiktoken-rs)
+  // GPT-5 Series (context from tiktoken-rs)
   // ==========================================================================
-  "gpt-5.2": createModelConfig(
-    "gpt-5.2",
+  "gpt-5.4": createModelConfig("gpt-5.4", "o200k_base", 16384, "gpt-5"),
+  "gpt-5.4-pro": createModelConfig("gpt-5.4-pro", "o200k_base", 16384, "gpt-5"),
+  "gpt-5.4-mini": createModelConfig(
+    "gpt-5.4-mini",
     "o200k_base",
     16384,
     "gpt-5",
-    400_000,
   ),
-  "gpt-5.2-pro": createModelConfig(
-    "gpt-5.2-pro",
+  "gpt-5.4-nano": createModelConfig(
+    "gpt-5.4-nano",
     "o200k_base",
-    16384,
+    4096,
     "gpt-5",
-    400_000,
   ),
+  "gpt-5.2": createModelConfig("gpt-5.2", "o200k_base", 16384, "gpt-5"),
+  "gpt-5.2-pro": createModelConfig("gpt-5.2-pro", "o200k_base", 16384, "gpt-5"),
   "gpt-5": createModelConfig("gpt-5", "o200k_base", 16384, "gpt-5"),
   "gpt-5-mini": createModelConfig("gpt-5-mini", "o200k_base", 16384, "gpt-5"),
   "gpt-5-nano": createModelConfig("gpt-5-nano", "o200k_base", 4096, "gpt-5"),
@@ -58,20 +63,38 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   // ==========================================================================
   // Codex Series
   // ==========================================================================
+  "gpt-5.3-codex": createModelConfig(
+    "gpt-5.3-codex",
+    "o200k_base",
+    32768,
+    "codex",
+  ),
+  "gpt-5.3-codex-spark": createModelConfig(
+    "gpt-5.3-codex-spark",
+    "o200k_base",
+    32768,
+    "codex",
+  ),
   "gpt-5.2-codex": createModelConfig(
     "gpt-5.2-codex",
     "o200k_base",
     32768,
     "codex",
-    192_000,
   ),
   "gpt-5.1-codex": createModelConfig(
     "gpt-5.1-codex",
     "o200k_base",
     32768,
     "codex",
-    192_000,
   ),
+  "gpt-5.1-codex-mini": createModelConfig(
+    "gpt-5.1-codex-mini",
+    "o200k_base",
+    32768,
+    "codex",
+  ),
+  "gpt-5-codex": createModelConfig("gpt-5-codex", "o200k_base", 32768, "codex"),
+  "codex-mini": createModelConfig("codex-mini", "o200k_base", 32768, "codex"),
 
   // ==========================================================================
   // o-Series Reasoning Models (200K context from tiktoken-rs)
@@ -86,13 +109,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   ),
   o3: createModelConfig("o3", "o200k_base", 32768, "o-series"),
   "o3-mini": createModelConfig("o3-mini", "o200k_base", 16384, "o-series"),
-  "o3-pro": createModelConfig(
-    "o3-pro",
-    "o200k_base",
-    65536,
-    "o-series",
-    200_000,
-  ),
+  "o3-pro": createModelConfig("o3-pro", "o200k_base", 65536, "o-series"),
   "o4-mini": createModelConfig("o4-mini", "o200k_base", 16384, "o-series"),
 
   // ==========================================================================
@@ -556,6 +573,12 @@ export const MODEL_ALIASES: Record<string, string> = {
 export function getModelConfig(modelName: string): ModelConfig | undefined {
   const normalizedName = modelName.toLowerCase().trim();
 
+  // Fine-tuned models resolve via their base model
+  if (normalizedName.startsWith("ft:")) {
+    const rest = normalizedName.slice(3);
+    return getModelConfig(rest.split(":")[0] ?? rest);
+  }
+
   // Direct match
   if (MODEL_CONFIGS[normalizedName]) {
     return MODEL_CONFIGS[normalizedName];
@@ -567,14 +590,21 @@ export function getModelConfig(modelName: string): ModelConfig | undefined {
     return MODEL_CONFIGS[aliasedName];
   }
 
-  // Partial match (for versioned models like gpt-4-0613)
+  // Truncated names: first model the input is a prefix of
   for (const [key, config] of Object.entries(MODEL_CONFIGS)) {
-    if (normalizedName.startsWith(key) || key.startsWith(normalizedName)) {
+    if (key.startsWith(normalizedName)) {
       return config;
     }
   }
 
-  return undefined;
+  // Versioned names (gpt-4-0613, o1-mini-2024-09-12): longest known prefix wins
+  let bestKey = "";
+  for (const key of Object.keys(MODEL_CONFIGS)) {
+    if (normalizedName.startsWith(key) && key.length > bestKey.length) {
+      bestKey = key;
+    }
+  }
+  return bestKey ? MODEL_CONFIGS[bestKey] : undefined;
 }
 
 /**
@@ -596,7 +626,8 @@ export function getEncodingForModel(modelName: string): EncodingName {
  */
 export function getModelContextLimit(modelName: string): number {
   const config = getModelConfig(modelName);
-  return config?.contextLimit ?? 128000; // Default to GPT-4o-class context
+  // Unconfigured families with a known window (e.g. gpt-6) before the GPT-4o-class default
+  return config?.contextLimit ?? findContextSize(modelName) ?? 128000;
 }
 
 /**

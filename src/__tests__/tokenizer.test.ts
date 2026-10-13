@@ -931,7 +931,7 @@ describe("Integration Tests", () => {
     // Context limits from tiktoken-rs (see core/model-to-encoding.ts)
     const testCases = [
       { model: "gpt-4o", contextLimit: 128000, maxOutput: 16384 },
-      { model: "gpt-5-nano", contextLimit: 200000, maxOutput: 4096 }, // tiktoken-rs: 200K
+      { model: "gpt-5-nano", contextLimit: 400000, maxOutput: 4096 }, // tiktoken-rs: 400K
       { model: "gpt-3.5-turbo", contextLimit: 16385, maxOutput: 4096 },
       { model: "deepseek-chat", contextLimit: 32768, maxOutput: 4096 },
       // Claude models (200K context)
@@ -1431,5 +1431,22 @@ describe("Exact model mappings (tiktoken-rs parity)", () => {
   it("should report unknown models as undefined, defaulting only in getContextSize", () => {
     expect(findContextSize("foo")).toBeUndefined();
     expect(getContextSize("foo")).toBe(4096);
+  });
+
+  it.each([
+    ["gpt-5.4-mini-2026-03-01", 400_000],
+    ["gpt-5.4-pro", 1_050_000],
+    ["gpt-5.3-codex-spark", 128_000],
+    ["gpt-5.2-codex", 400_000],
+    ["codex-mini-latest", 200_000],
+    ["o1-mini-2024-09-12", 128_000],
+    ["ft:gpt-3.5-turbo:org:id", 16_385],
+    ["gpt-6-astra", 1_050_000],
+  ])("getModelContextLimit(%s) -> %d", (model, expected) => {
+    expect(getModelContextLimit(model)).toBe(expected);
+  });
+
+  it("should resolve fine-tuned models to their base encoding", () => {
+    expect(getEncodingForModel("ft:gpt-3.5-turbo:org:id")).toBe("cl100k_base");
   });
 });
